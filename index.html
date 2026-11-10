@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Office Prankster: The Face-ID Menace | 3D Game</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800;900&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+    <!-- Canvas 3D Container -->
+    <div id="game-canvas-container"></div>
+
+    <!-- Dynamic Floating Labels Container (Boss Rage Meters, Trap Labels, Popups) -->
+    <div id="world-labels-container"></div>
+
+    <!-- ==================== HUD CHÍNH TRONG GAME ==================== -->
+    <div id="game-hud" class="hidden">
+        <!-- Top Bar: Đồng hồ ca làm, Điểm số, Combo, Mục tiêu -->
+        <div class="hud-top-bar">
+            <div class="hud-card clock-card">
+                <div class="card-icon">🕒</div>
+                <div class="card-info">
+                    <span class="card-label">GIỜ HÀNH CHÍNH</span>
+                    <span id="hud-clock" class="card-value">08:30 AM</span>
+                </div>
+                <div class="shift-progress-wrap">
+                    <div id="hud-shift-bar" class="shift-progress-fill"></div>
+                </div>
+            </div>
+
+            <div class="hud-card score-card">
+                <div class="card-icon">😈</div>
+                <div class="card-info">
+                    <span class="card-label">ĐIỂM PHÁ BĨNH (SCORE)</span>
+                    <span id="hud-score" class="card-value">0</span>
+                </div>
+                <div id="hud-combo-badge" class="combo-badge hidden">COMBO x1</div>
+            </div>
+
+            <div class="hud-card status-card">
+                <div class="card-icon" id="hud-disguise-icon">🚶</div>
+                <div class="card-info">
+                    <span class="card-label">TRẠNG THÁI NHÂN VIÊN</span>
+                    <span id="hud-player-state" class="card-value state-normal">Đang đi dạo</span>
+                </div>
+            </div>
+
+            <div class="hud-card strike-card">
+                <div class="card-info">
+                    <span class="card-label">CẢNH CÁO SA THẢI</span>
+                    <div id="hud-strikes" class="strikes-row">
+                        <span class="strike-dot">💼</span>
+                        <span class="strike-dot">💼</span>
+                        <span class="strike-dot">💼</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Thanh cảnh báo Nghi Ngờ / Bị Phát Hiện -->
+        <div id="hud-suspicion-banner" class="suspicion-banner hidden">
+            <div class="suspicion-title">⚠️ SẾP ĐANG NGHI NGỜ BẠN! Mau giả vờ làm việc hoặc trốn đi!</div>
+            <div class="suspicion-bar-bg">
+                <div id="hud-suspicion-fill" class="suspicion-bar-fill"></div>
+            </div>
+        </div>
+
+        <!-- Thanh "Giả vờ làm việc" & Nguy cơ làm việc thật -->
+        <div id="hud-work-panel" class="work-panel hidden">
+            <div class="work-panel-header">
+                <span>⌨️ ĐANG GIẢ VỜ GÕ PHÍM CẬT LỰC! (Nhấp <kbd>SPACE</kbd> để diễn sâu)</span>
+                <span class="safe-badge">🛡️ SẾP KHÔNG NGHI NGỜ</span>
+            </div>
+            <div class="real-work-warning">
+                <span>⚠️ Nguy cơ "Vô tình làm xong việc thật" (Đầy thanh = -150 điểm!):</span>
+                <div class="real-work-bar-bg">
+                    <div id="hud-real-work-fill" class="real-work-bar-fill"></div>
+                </div>
+            </div>
+            <div class="work-panel-hint">Nhấn <kbd>F</kbd> hoặc <kbd>WASD</kbd> để đứng dậy rời bàn làm việc</div>
+        </div>
+
+        <!-- Gợi ý tương tác (Interaction Prompt) ở giữa dưới màn hình -->
+        <div id="hud-interact-prompt" class="interact-prompt hidden">
+            <span class="key-pill" id="interact-key">E</span>
+            <span id="interact-text">Gài bẫy</span>
+        </div>
+
+        <!-- Tiến trình đang gài bẫy (Sabotage Progress Ring/Bar) -->
+        <div id="hud-sabotage-progress" class="sabotage-progress hidden">
+            <div class="sabotage-title" id="sabotage-title">🔧 Đang gài bẫy... (Cẩn thận tầm nhìn của Sếp!)</div>
+            <div class="sabotage-bar-bg">
+                <div id="sabotage-bar-fill" class="sabotage-bar-fill"></div>
+            </div>
+        </div>
+
+        <!-- Bảng Nhiệm vụ & Danh sách Bẫy bên trái -->
+        <div class="hud-left-panel">
+            <div class="panel-box">
+                <h3>📋 DANH SÁCH BẪY CÔNG SỞ</h3>
+                <div id="hud-prank-checklist" class="prank-checklist"></div>
+            </div>
+            <div class="panel-box boss-overview-box">
+                <h3>🔥 NỘ KHÍ CÁC SẾP</h3>
+                <div id="hud-boss-list" class="boss-mini-list"></div>
+            </div>
+        </div>
+
+        <!-- Hướng dẫn phím tắt góc phải dưới -->
+        <div class="hud-controls-help">
+            <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Di chuyển</div>
+            <div><kbd>SHIFT</kbd> Chạy nhanh</div>
+            <div><kbd>E</kbd> Gài bẫy / Trốn tủ</div>
+            <div><kbd>F</kbd> Ngồi gõ phím giả vờ</div>
+            <div><kbd>M</kbd> Bật/Tắt Âm thanh</div>
+        </div>
+
+        <!-- Thông báo sự kiện hài hước (Toast Feed) -->
+        <div id="hud-toast-container" class="toast-container"></div>
+    </div>
+
+    <!-- ==================== GIAO DIỆN MINIGAME: FACE-ID CHECK-IN ==================== -->
+    <div id="faceid-overlay" class="faceid-overlay hidden">
+        <div class="faceid-scanner-frame">
+            <div class="scanner-corner tl"></div>
+            <div class="scanner-corner tr"></div>
+            <div class="scanner-corner bl"></div>
+            <div class="scanner-corner br"></div>
+            <div class="laser-scan-line"></div>
+            <div class="scanner-top-badge">📷 AI FACE-ID GATEKEEPER v4.2</div>
+        </div>
+
+        <div class="faceid-control-panel">
+            <div class="faceid-header">
+                <span class="faceid-badge">BƯỚC 1: CHẤM CÔNG KHUÔN MẶT</span>
+                <h2 id="faceid-target-title">Biểu cảm yêu cầu: "Nụ Cười Công Nghiệp"</h2>
+                <p id="faceid-target-desc">Hãy giữ các phím cơ mặt bên dưới sao cho các thanh trượt nằm trong <strong>Vùng Xanh Lá</strong>!</p>
+            </div>
+
+            <div class="faceid-timer-row">
+                <span>⏱️ Thời gian còn lại: <strong id="faceid-timer">15.0s</strong></span>
+                <span>Tiến trình xác thực: <strong id="faceid-scan-pct">0%</strong></span>
+            </div>
+            <div class="faceid-scan-bar-bg">
+                <div id="faceid-scan-bar-fill" class="faceid-scan-bar-fill"></div>
+            </div>
+
+            <!-- 4 Thanh cơ mặt Q, W, E, R -->
+            <div class="faceid-muscles-grid">
+                <div class="muscle-row" id="muscle-row-q">
+                    <div class="muscle-label">
+                        <span class="key-cap">Q</span>
+                        <span>Cơ Cười Nhe Răng (Smile)</span>
+                        <span class="muscle-val" id="val-q">0%</span>
+                    </div>
+                    <div class="muscle-track">
+                        <div class="muscle-target-zone" id="zone-q"></div>
+                        <div class="muscle-current-bar" id="bar-q"></div>
+                    </div>
+                </div>
+
+                <div class="muscle-row" id="muscle-row-w">
+                    <div class="muscle-label">
+                        <span class="key-cap">W</span>
+                        <span>Cơ Mếu Máo Đau Khổ (Cry)</span>
+                        <span class="muscle-val" id="val-w">0%</span>
+                    </div>
+                    <div class="muscle-track">
+                        <div class="muscle-target-zone" id="zone-w"></div>
+                        <div class="muscle-current-bar" id="bar-w"></div>
+                    </div>
+                </div>
+
+                <div class="muscle-row" id="muscle-row-e">
+                    <div class="muscle-label">
+                        <span class="key-cap">E</span>
+                        <span>Cơ Nhướn Mày Cực Ngầu (Cool Brow)</span>
+                        <span class="muscle-val" id="val-e">0%</span>
+                    </div>
+                    <div class="muscle-track">
+                        <div class="muscle-target-zone" id="zone-e"></div>
+                        <div class="muscle-current-bar" id="bar-e"></div>
+                    </div>
+                </div>
+
+                <div class="muscle-row" id="muscle-row-r">
+                    <div class="muscle-label">
+                        <span class="key-cap">R</span>
+                        <span>Cơ Phồng Má Nháy Mắt (Wink & Puff)</span>
+                        <span class="muscle-val" id="val-r">0%</span>
+                    </div>
+                    <div class="muscle-track">
+                        <div class="muscle-target-zone" id="zone-r"></div>
+                        <div class="muscle-current-bar" id="bar-r"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="faceid-footer">
+                <span class="tip-text">💡 Mẹo: Nhấp nhả nhịp nhàng các phím <kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd> để giữ thanh cơ mặt trong vùng mục tiêu!</span>
+                <button id="btn-skip-faceid" class="btn-secondary-sm">Dùng Thẻ Nhân Viên Giả (Bỏ qua nhanh)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MÀN HÌNH CHÍNH (MAIN MENU) ==================== -->
+    <div id="main-menu-modal" class="modal-overlay">
+        <div class="menu-card">
+            <div class="game-logo-badge">3D STEALTH COMEDY GAME</div>
+            <h1 class="game-title">OFFICE PRANKSTER<span>THE FACE-ID MENACE</span></h1>
+            <p class="game-subtitle">Kẻ Phá Bĩnh Chốn Công Sở — Đi làm là phụ, chọc tức các Sếp mới là đam mê!</p>
+
+            <div class="menu-features-grid">
+                <div class="feature-item">
+                    <div class="f-icon">🤳</div>
+                    <div class="f-text">
+                        <h4>1. Chấm Công Face-ID</h4>
+                        <p>Điều khiển cơ mặt 3D bằng <kbd>Q</kbd><kbd>W</kbd><kbd>E</kbd><kbd>R</kbd> để đánh lừa AI quét khuôn mặt ở cổng sảnh.</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="f-icon">💻</div>
+                    <div class="f-text">
+                        <h4>2. 8 Bẫy Công Nghệ Bá Đạo</h4>
+                        <p>Deepfake mèo vào Zoom của CEO, ghế xoay phóng tên lửa, loa AI phản chủ, máy photocopy phun meme...</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="f-icon">👀</div>
+                    <div class="f-text">
+                        <h4>3. Né Tầm Nhìn & Nộ Khí</h4>
+                        <p>Tránh hình nón tầm nhìn (FOV) của 3 Sếp. Đẩy thanh Nộ Khí lên 100% để nổ Jackpot Combo!</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="f-icon">⌨️</div>
+                    <div class="f-text">
+                        <h4>4. Giả Vờ Làm Việc</h4>
+                        <p>Ngồi vào bàn gõ phím điên cuồng hoặc chui vào tủ hồ sơ khi Sếp đi tuần qua.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="menu-actions">
+                <button id="btn-start-game" class="btn-primary-lg">🚀 BẮT ĐẦU CA LÀM VIỆC (PLAY 3D)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MÀN HÌNH KẾT THÚC (GAME OVER / VICTORY) ==================== -->
+    <div id="end-game-modal" class="modal-overlay hidden">
+        <div class="menu-card end-card">
+            <div id="end-badge" class="game-logo-badge">KẾT THÚC CA LÀM VIỆC</div>
+            <h1 id="end-title" class="game-title">TAN LÀM THÀNH CÔNG!</h1>
+            <p id="end-reason" class="game-subtitle">Bạn đã quậy tung cả văn phòng mà không hề bị đuổi việc!</p>
+
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <span class="stat-label">TỔNG ĐIỂM PRANK</span>
+                    <span id="stat-final-score" class="stat-val highlight">0</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-label">SỐ BẪY ĐÃ KÍCH HOẠT</span>
+                    <span id="stat-traps-triggered" class="stat-val">0</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-label">SẾP BÙNG NỔ (100% RAGE)</span>
+                    <span id="stat-boss-meltdowns" class="stat-val">0 lần</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-label">DANH HIỆU ĐẠT ĐƯỢC</span>
+                    <span id="stat-rank-title" class="stat-val rank">Thực Tập Sinh Ngây Thơ</span>
+                </div>
+            </div>
+
+            <div class="menu-actions">
+                <button id="btn-restart-game" class="btn-primary-lg">🔄 ĐI LÀM NGÀY TIẾP THEO (CHƠI LẠI)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/audio.js"></script>
+    <script src="js/world.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/faceIdMinigame.js"></script>
+    <script src="js/prankSystem.js"></script>
+    <script src="js/bossAI.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
